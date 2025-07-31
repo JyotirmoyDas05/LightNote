@@ -147,7 +147,16 @@ export default function HeroSection() {
                                 </AnimatedGroup>
 
                                 <h1 className="mt-8 text-balance text-6xl md:text-7xl lg:mt-16 xl:text-[5.25rem] font-semibold">
-                                    <WordSwitcher /> Your Ideas with LightNote
+                                    <TextEffect
+                                        as="span"
+                                        preset="fade-in-blur"
+                                        speedSegment={0.3}
+                                        delay={0.5}
+                                        className="inline-block"
+                                    >
+                                        <WordSwitcher />
+                                    {' '}Your Ideas with LightNote
+                                    </TextEffect>
                                 </h1>
                                 <TextEffect
                                     per="line"
@@ -175,19 +184,27 @@ export default function HeroSection() {
                                     <div
                                         key={1}
                                         className="bg-foreground/10 rounded-[calc(var(--radius-xl)+0.125rem)] border p-0.5">
-                                        <Button
-                                            asChild
-                                            size="lg"
-                                            className="rounded-xl px-5 text-base">
-                                            <Link href="#link">
-                                                <span className="text-nowrap">Start Building</span>
-                                            </Link>
-                                        </Button>
+                                    <Button
+                                        size="lg"
+                                        className="rounded-xl px-5 text-base"
+                                        onClick={async () => {
+                                            // Check session status via API or cookie
+                                            try {
+                                                const res = await fetch("/api/auth/session");
+                                                const data = await res.json();
+                                                if (data?.user) {
+                                                    window.location.href = "/dashboard";
+                                                } else {
+                                                    window.location.href = "/login";
+                                                }
+                                            } catch {
+                                                window.location.href = "/login";
+                                            }
+                                        }}>
+                                        <span className="text-nowrap">Start Building</span>
+                                    </Button>
                                     </div>
                                     <Button
-                                        key={2}
-                                        asChild
-                                        size="lg"
                                         variant="ghost"
                                         className="h-10.5 rounded-xl px-5">
                                         <Link href="#link">

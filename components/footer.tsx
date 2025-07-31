@@ -1,4 +1,4 @@
-import { Logo } from '@/components/logo'
+import { LogoFull } from '@/components/logo'
 import Link from 'next/link'
 
 const links = [
@@ -36,7 +36,7 @@ export default function FooterSection() {
                     href="/"
                     aria-label="go home"
                     className="mx-auto block size-fit">
-                    <Logo />
+                    <LogoFull />
                 </Link>
 
                 <div className="my-8 flex flex-wrap justify-center gap-6 text-sm">
@@ -158,7 +158,7 @@ export default function FooterSection() {
                         </svg>
                     </Link>
                 </div>
-                <span className="text-muted-foreground block text-center text-sm"> © {new Date().getFullYear()} Tailark, All rights reserved</span>
+                <span className="text-muted-foreground block text-center text-sm"> © {new Date().getFullYear()} LightNote, All rights reserved</span>
             </div>
         </footer>
     )
