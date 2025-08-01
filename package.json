@@ -1,5 +1,5 @@
 {
-  "name": "noteforge",
+  "name": "lightnote",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -27,6 +27,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.1",
+    "hamburger-react": "^2.5.2",
     "lucide-react": "^0.533.0",
     "motion": "^12.23.11",
     "next": "15.4.4",
