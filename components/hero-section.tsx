@@ -9,6 +9,7 @@ import { TextEffect } from '@/components/ui/text-effect'
 import { AnimatedGroup } from '@/components/ui/animated-group'
 import { HeroHeader } from './header'
 import { ShootingStars } from './ShootingStars'
+import { GridBeams } from './GridBeams';
 
 const transitionVariants = {
     item: {
@@ -80,12 +81,12 @@ export default function HeroSection() {
     return (
         <>
             <HeroHeader />
-            <main className="overflow-hidden relative">
+            <main className="overflow-hidden relative" style={{ minHeight: '600px' }}>
                 {/* Light theme grid background, hidden in dark mode, absolutely positioned behind content */}
                 <div
-                  className="absolute inset-0 -z-30 block dark:hidden"
-                  aria-hidden
+                  className="absolute inset-0 block dark:hidden"
                   style={{
+                    zIndex: -30,
                     backgroundColor: '#f8fafc',
                     backgroundImage: `
                       linear-gradient(to right, #e2e8f0 1px, transparent 1px),
@@ -98,6 +99,13 @@ export default function HeroSection() {
                       "radial-gradient(ellipse 70% 60% at 50% 0%, #000 60%, transparent 100%)",
                   }}
                 />
+                {/* Animated grid beams, only in light mode, positioned above grid bg but below content */}
+                <div
+                  className="absolute inset-0 block dark:hidden"
+                  style={{ zIndex: -20, pointerEvents: 'none', minHeight: '600px' }}
+                >
+                  <GridBeams />
+                </div>
                 {/* ...existing code... */}
                 <section>
                     <div className="relative pt-24 md:pt-36">
