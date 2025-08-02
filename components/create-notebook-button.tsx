@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
 import { Button } from "./ui/button";
+import { EmojiPicker, EmojiPickerFooter, EmojiPickerSearch, EmojiPickerContent } from "@/components/ui/emoji-picker";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +34,7 @@ import { useRouter } from "next/navigation";
 
 const formSchema = z.object({
   name: z.string().min(2).max(50),
+  emoji: z.string().min(1).max(2), // Emoji field
 });
 
 export const CreateNotebookButton = () => {
@@ -44,8 +47,12 @@ export const CreateNotebookButton = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      emoji: "", // Default empty emoji
     },
   });
+
+  // Local state for emoji picker
+  const [pickerEmoji, setPickerEmoji] = useState("");
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
@@ -60,6 +67,7 @@ export const CreateNotebookButton = () => {
       const response = await createNotebook({
         ...values,
         userId,
+        emoji: values.emoji, // Pass emoji to backend
       });
       if (response.success) {
         form.reset();
@@ -99,6 +107,41 @@ export const CreateNotebookButton = () => {
                   <FormLabel>Name</FormLabel>
                   <FormControl>
                     <Input placeholder="My Notebook" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="emoji"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Emoji</FormLabel>
+                  <FormControl>
+                    <div className="flex items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button type="button" variant="outline" size="icon">
+                            {field.value || "😊"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-fit p-0">
+                          <EmojiPicker
+                            className="h-[342px]"
+                            onEmojiSelect={({ emoji }) => {
+                              field.onChange(emoji);
+                              setPickerEmoji(emoji);
+                            }}
+                          >
+                            <EmojiPickerSearch />
+                            <EmojiPickerContent />
+                            <EmojiPickerFooter />
+                          </EmojiPicker>
+                        </PopoverContent>
+                      </Popover>
+                      <span className="text-xs text-muted-foreground ml-2">Use an emoji to easily differentiate your notebooks!</span>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

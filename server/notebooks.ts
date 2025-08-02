@@ -33,8 +33,16 @@ export const getNotebooks = async () => {
                 notes: true
             }
         });
+        // Ensure notes include emoji property for sidebar
+        const notebooksWithEmoji = notebooksByUser.map((notebook) => ({
+            ...notebook,
+            notes: notebook.notes.map((note) => ({
+                ...note,
+                emoji: note.emoji ?? null,
+            })),
+        }));
 
-        return { success: true, notebooks: notebooksByUser };
+        return { success: true, notebooks: notebooksWithEmoji };
     } catch {
         return { success: false, message: "Failed to get notebooks" };
     }
@@ -48,8 +56,18 @@ export const getNotebookById = async (id: string) => {
                 notes: true
             }
         });
+        // Ensure notes include emoji property for sidebar
+        const notebookWithEmoji = notebook
+            ? {
+                  ...notebook,
+                  notes: notebook.notes.map((note) => ({
+                      ...note,
+                      emoji: note.emoji ?? null,
+                  })),
+              }
+            : null;
 
-        return { success: true, notebook };
+        return { success: true, notebook: notebookWithEmoji };
     } catch {
         return { success: false, message: "Failed to get notebook" };
     }

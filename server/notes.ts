@@ -9,7 +9,7 @@ export const createNote = async (values: InsertNote) => {
         await db.insert(notes).values(values);
         return { success: true, message: "Note created successfully" };
     } catch {
-        return { success: false, message: "Failed to create notebook" };
+        return { success: false, message: "Failed to create note" };
     }
 };
 

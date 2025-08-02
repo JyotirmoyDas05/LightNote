@@ -1,3 +1,23 @@
+export const favorites = pgTable("favorites", {
+    id: text('id').primaryKey().default(sql`gen_random_uuid()`),
+    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    noteId: text('note_id').notNull().references(() => notes.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
+});
+
+export const favoriteRelations = relations(favorites, ({ one }) => ({
+    user: one(user, {
+        fields: [favorites.userId],
+        references: [user.id]
+    }),
+    note: one(notes, {
+        fields: [favorites.noteId],
+        references: [notes.id]
+    })
+}));
+
+export type Favorite = typeof favorites.$inferSelect;
+export type InsertFavorite = typeof favorites.$inferInsert;
 import { relations, sql } from "drizzle-orm";
 import { boolean, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
@@ -51,6 +71,7 @@ export const notebooks = pgTable("notebooks", {
     id: text('id').primaryKey().default(sql`gen_random_uuid()`),
     name: text('name').notNull(),
     userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    emoji: text('emoji'),
     createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
     updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date())
 });
@@ -73,6 +94,7 @@ export const notes = pgTable("notes", {
     title: text('title').notNull(),
     content: jsonb('content').notNull(),
     notebookId: text('notebook_id').notNull().references(() => notebooks.id, { onDelete: 'cascade' }),
+    emoji: text('emoji'),
     createdAt: timestamp('created_at').$defaultFn(() => /* @__PURE__ */ new Date()),
     updatedAt: timestamp('updated_at').$defaultFn(() => /* @__PURE__ */ new Date())
 });
@@ -87,4 +109,4 @@ export const noteRelations = relations(notes, ({ one }) => ({
 export type Note = typeof notes.$inferSelect;
 export type InsertNote = typeof notes.$inferInsert;
 
-export const schema = { user, session, account, verification, notebooks, notes, notebookRelations, noteRelations };
+export const schema = { user, session, account, verification, notebooks, notes, notebookRelations, noteRelations, favorites, favoriteRelations };
