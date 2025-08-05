@@ -12,7 +12,7 @@ export const auth = betterAuth({
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
         await resend.emails.send({
-        from: "LightNote <jyotimoydas12345@gmail.com>",
+        from: "LightNote <onboarding@lightnote.page>",
         to: [user.email],
         subject: "Verify your email",
         react: VerificationEmail({
