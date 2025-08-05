@@ -50,7 +50,6 @@ export function LoginForm({
       password: "",
     },
   });
-
   const LogIn = async () => {
   await authClient.signIn.social({
         provider: "google",
