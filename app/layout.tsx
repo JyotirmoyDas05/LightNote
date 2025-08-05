@@ -18,6 +18,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "LightNote",
   description: "A note-taking app built for Everyone",
+  icons: {
+    icon: [
+      { rel: "icon", type: "image/png", sizes: "96x96", url: "/favicon-96x96.png" },
+      { rel: "icon", type: "image/svg+xml", url: "/favicon.svg" },
+      { rel: "shortcut icon", url: "/favicon.ico" },
+      { rel: "apple-touch-icon", sizes: "180x180", url: "/apple-touch-icon.png" },
+    ],
+  },
+  manifest: "/site.webmanifest",
+  appleWebApp: {
+    title: "LightNote",
+  },
 };
 
 export default function RootLayout({
@@ -27,14 +39,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="shortcut icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <meta name="apple-mobile-web-app-title" content="LightNote" />
-        <link rel="manifest" href="/site.webmanifest" />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
