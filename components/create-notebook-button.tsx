@@ -52,7 +52,6 @@ export const CreateNotebookButton = () => {
   });
 
   // Local state for emoji picker
-  const [pickerEmoji, setPickerEmoji] = useState("");
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
@@ -131,7 +130,6 @@ export const CreateNotebookButton = () => {
                             className="h-[342px]"
                             onEmojiSelect={({ emoji }) => {
                               field.onChange(emoji);
-                              setPickerEmoji(emoji);
                             }}
                           >
                             <EmojiPickerSearch />
