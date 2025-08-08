@@ -1,4 +1,5 @@
 "use client";
+import * as React from "react";
 
 import {
   useEditor,
@@ -6,58 +7,142 @@ import {
   useEditorState,
   type JSONContent,
 } from "@tiptap/react";
+import Blockquote from "@tiptap/extension-blockquote";
+import Code from "@tiptap/extension-code";
 import StarterKit from "@tiptap/starter-kit";
-import Document from "@tiptap/extension-document";
-import Paragraph from "@tiptap/extension-paragraph";
-import Text from "@tiptap/extension-text";
-import { Button } from "@/components/ui/button";
+import BulletList from "@tiptap/extension-bullet-list";
+import OrderedList from "@tiptap/extension-ordered-list";
+import ListItem from "@tiptap/extension-list-item";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import CodeBlock from "@tiptap/extension-code-block";
+import Link from "@tiptap/extension-link";
+import { SubscriptIcon } from "lucide-react";
+import { LinkPopover } from "@/components/tiptap-ui/link-popover";
+import { ColorHighlightPopover } from "@/components/tiptap-ui/color-highlight-popover";
+import { CodeBlockButton } from "@/components/tiptap-ui/code-block-button";
+import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu";
+import Underline from "@tiptap/extension-underline";
+import Superscript from "@tiptap/extension-superscript";
+import { Superscript as SuperscriptIcon } from "lucide-react";
+import Subscript from "@tiptap/extension-subscript";
+import TextAlign from "@tiptap/extension-text-align";
+import Highlight from "@tiptap/extension-highlight";
+import { ImageUploadNode } from "@/components/tiptap-node/image-upload-node";
+import Image from "@tiptap/extension-image";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  handleImageUpload,
+  MAX_FILE_SIZE,
+  extractImageUrlsFromJSON,
+  stripNodesOfType,
+} from "@/lib/tiptap-utils";
+import { Button as TiptapButton } from "@/components/tiptap-ui-primitive/button";
+import { BlockquoteButton } from "@/components/tiptap-ui/blockquote-button";
+import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu";
+import "@/components/tiptap-node/image-upload-node/image-upload-node.scss";
+import "@/components/tiptap-node/paragraph-node/paragraph-node.scss";
+import "@/components/tiptap-node/list-node/list-node.scss";
+import "@/components/tiptap-node/image-node/image-node.scss";
+import "@/components/tiptap-node/blockquote-node/blockquote-node.scss";
+import "@/components/tiptap-node/code-block-node/code-block-node.scss";
 import {
   Undo,
   Redo,
   Bold,
   Italic,
   Strikethrough,
-  Code,
-  Underline,
-  Link,
-  List,
-  ListOrdered,
   AlignLeft,
   AlignCenter,
   AlignRight,
   AlignJustify,
-  Plus,
-  ChevronDown,
-  Superscript,
-  Subscript,
+  UnderlineIcon,
 } from "lucide-react";
+import { ImageUploadButton } from "@/components/tiptap-ui/image-upload-button";
 import { updateNote } from "@/server/notes";
 
 interface RichTextEditorProps {
-  content?: JSONContent[];
+  content?: JSONContent;
   noteId?: string;
 }
 
 const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
+  const saveTimer = React.useRef<NodeJS.Timeout | null>(null);
+  const debouncedSave = React.useCallback((fn: () => void, delay = 500) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(fn, delay);
+  }, []);
+
   const editor = useEditor({
-    extensions: [StarterKit, Document, Paragraph, Text],
+    extensions: [
+      StarterKit.configure({
+        bulletList: false,
+        orderedList: false,
+        listItem: false,
+        blockquote: false,
+        codeBlock: false,
+      }),
+      Blockquote.configure({
+        HTMLAttributes: { class: "my-blockquote" }, // optional styling hook
+      }),
+      Code.configure({
+        HTMLAttributes: { class: "my-inline-code" }, // optional styling hook
+      }),
+      CodeBlock.configure({
+        HTMLAttributes: { class: "my-code-block" }, // optional
+      }),
+      BulletList.configure({
+        HTMLAttributes: {
+          class: "my-list",
+        },
+      }),
+      OrderedList.configure({
+        HTMLAttributes: {
+          class: "my-list",
+        },
+      }),
+      ListItem,
+      TaskList.configure({
+        HTMLAttributes: {
+          class: "my-task-list",
+        },
+      }),
+      TaskItem.configure({
+        nested: true,
+        HTMLAttributes: {
+          class: "my-task-item",
+        },
+      }),
+      Link.configure({ openOnClick: false }),
+      Underline,
+      Superscript,
+      Subscript,
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Highlight.configure({ multicolor: true }),
+
+      Image,
+      ImageUploadNode.configure({
+        accept: "image/*",
+        maxSize: MAX_FILE_SIZE,
+        limit: 3,
+        upload: handleImageUpload,
+        onError: (error) => console.error("Upload failed:", error),
+      }),
+    ],
     immediatelyRender: false,
     autofocus: true,
     editable: true,
     injectCSS: false,
     onUpdate: ({ editor }) => {
-      if (noteId) {
-        const content = editor.getJSON();
-        updateNote(noteId, { content });
-      }
+      if (!noteId) return;
+      const content = editor.getJSON();
+      const images = extractImageUrlsFromJSON(content);
+      debouncedSave(() => {
+        updateNote(noteId, { content, images });
+      });
     },
-    content: content ?? {
+    content: (content
+      ? stripNodesOfType(content as JSONContent, "imageUpload")
+      : undefined) ?? {
       type: "doc",
       content: [
         {
@@ -140,6 +225,8 @@ const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
         canStrike: ctx.editor?.can().chain().focus().toggleStrike().run(),
         isCode: ctx.editor?.isActive("code"),
         canCode: ctx.editor?.can().chain().focus().toggleCode().run(),
+        isUnderline: ctx.editor?.isActive("underline"),
+        canUnderline: ctx.editor?.can().chain().focus().toggleUnderline().run(),
         isParagraph: ctx.editor?.isActive("paragraph"),
         isHeading1: ctx.editor?.isActive("heading", { level: 1 }),
         isHeading2: ctx.editor?.isActive("heading", { level: 2 }),
@@ -154,132 +241,102 @@ const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
     },
   });
 
-  const getActiveHeading = () => {
-    if (editorState?.isHeading1) return "H1";
-    if (editorState?.isHeading2) return "H2";
-    if (editorState?.isHeading3) return "H3";
-    return "H1";
-  };
-
   return (
     <div className="w-full max-w-7xl bg-card text-card-foreground rounded-lg overflow-hidden border">
       {/* Toolbar */}
       <div className="flex items-center gap-1 p-2 bg-muted/50 border-b">
         {/* Undo/Redo */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor?.chain().focus().undo().run()}
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={undefined}
+          role="button"
+          tabIndex={-1}
           disabled={!editorState?.canUndo}
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          data-disabled={!editorState?.canUndo}
+          aria-label="Undo"
+          tooltip="Undo"
+          onClick={() => editor?.chain().focus().undo().run()}
+          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent flex items-center justify-center"
         >
           <Undo className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor?.chain().focus().redo().run()}
+        </TiptapButton>
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={undefined}
+          role="button"
+          tabIndex={-1}
           disabled={!editorState?.canRedo}
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          data-disabled={!editorState?.canRedo}
+          aria-label="Redo"
+          tooltip="Redo"
+          onClick={() => editor?.chain().focus().redo().run()}
+          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent flex items-center justify-center"
         >
           <Redo className="h-4 w-4" />
-        </Button>
+        </TiptapButton>
 
         <div className="w-px h-6 bg-border mx-1" />
 
-        {/* Heading Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-accent gap-1"
-            >
-              {getActiveHeading()}
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-popover border">
-            <DropdownMenuItem
-              onClick={() =>
-                editor?.chain().focus().toggleHeading({ level: 1 }).run()
-              }
-              className="text-popover-foreground hover:bg-accent hover:text-accent-foreground"
-            >
-              Heading 1
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                editor?.chain().focus().toggleHeading({ level: 2 }).run()
-              }
-              className="text-popover-foreground hover:bg-accent hover:text-accent-foreground"
-            >
-              Heading 2
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                editor?.chain().focus().toggleHeading({ level: 3 }).run()
-              }
-              className="text-popover-foreground hover:bg-accent hover:text-accent-foreground"
-            >
-              Heading 3
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => editor?.chain().focus().setParagraph().run()}
-              className="text-popover-foreground hover:bg-accent hover:text-accent-foreground"
-            >
-              Paragraph
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Heading Dropdown (Tiptap) */}
+        <HeadingDropdownMenu editor={editor} levels={[1, 2, 3]} />
 
-        {/* Lists */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor?.chain().focus().toggleBulletList().run()}
-          className={`size-8 p-0 hover:bg-accent ${
-            editorState?.isBulletList
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <List className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-          className={`size-8 p-0 hover:bg-accent ${
-            editorState?.isOrderedList
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <ListOrdered className="h-4 w-4" />
-        </Button>
+        {/* Lists Dropdown (Tiptap) */}
+        {editor && (
+          <ListDropdownMenu
+            editor={editor}
+            types={["bulletList", "orderedList", "taskList"]}
+          />
+        )}
+
+        {/* Code Block Button (Tiptap UI) */}
+        {editor && (
+          <CodeBlockButton
+            editor={editor}
+            className={`size-8 p-0 hover:bg-accent flex items-center justify-center ${
+              editor.isActive("codeBlock")
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          />
+        )}
 
         <div className="w-px h-6 bg-border mx-1" />
 
         {/* Text Formatting */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor?.chain().focus().toggleBold().run()}
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={editorState?.isBold ? "on" : "off"}
+          role="button"
+          tabIndex={-1}
           disabled={!editorState?.canBold}
-          className={`size-8 p-0 hover:bg-accent ${
+          data-disabled={!editorState?.canBold}
+          aria-label="Bold"
+          aria-pressed={editorState?.isBold}
+          tooltip="Bold"
+          onClick={() => editor?.chain().focus().toggleBold().run()}
+          className={`size-8 p-0 hover:bg-accent flex items-center justify-center ${
             editorState?.isBold
               ? "bg-accent text-accent-foreground"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <Bold className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor?.chain().focus().toggleItalic().run()}
+        </TiptapButton>
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={editorState?.isItalic ? "on" : "off"}
+          role="button"
+          tabIndex={-1}
           disabled={!editorState?.canItalic}
+          data-disabled={!editorState?.canItalic}
+          aria-label="Italic"
+          aria-pressed={editorState?.isItalic}
+          tooltip="Italic"
+          onClick={() => editor?.chain().focus().toggleItalic().run()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isItalic
               ? "bg-accent text-accent-foreground"
@@ -287,12 +344,19 @@ const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
           }`}
         >
           <Italic className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor?.chain().focus().toggleStrike().run()}
+        </TiptapButton>
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={editorState?.isStrike ? "on" : "off"}
+          role="button"
+          tabIndex={-1}
           disabled={!editorState?.canStrike}
+          data-disabled={!editorState?.canStrike}
+          aria-label="Strikethrough"
+          aria-pressed={editorState?.isStrike}
+          tooltip="Strikethrough"
+          onClick={() => editor?.chain().focus().toggleStrike().run()}
           className={`size-8 p-0 hover:bg-accent ${
             editorState?.isStrike
               ? "bg-accent text-accent-foreground"
@@ -300,104 +364,229 @@ const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
           }`}
         >
           <Strikethrough className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor?.chain().focus().toggleCode().run()}
+        </TiptapButton>
+
+        {/* Blockquote Button (Tiptap UI) */}
+        {editor && (
+          <BlockquoteButton
+            editor={editor}
+            className={`size-8 p-0 hover:bg-accent flex items-center justify-center ${
+              editor.isActive("blockquote")
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          />
+        )}
+
+        {/* Code (inline) Button (Tiptap UI) */}
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={editorState?.isCode ? "on" : "off"}
+          role="button"
+          tabIndex={-1}
           disabled={!editorState?.canCode}
-          className={`size-8 p-0 hover:bg-accent ${
+          data-disabled={!editorState?.canCode}
+          aria-label="Inline Code"
+          aria-pressed={editorState?.isCode}
+          tooltip="Inline Code"
+          onClick={() => editor?.chain().focus().toggleCode().run()}
+          className={`size-8 p-0 hover:bg-accent flex items-center justify-center ${
             editorState?.isCode
               ? "bg-accent text-accent-foreground"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Code className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          <svg
+            className="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+        </TiptapButton>
+
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={editorState?.isUnderline ? "on" : "off"}
+          role="button"
+          tabIndex={-1}
+          disabled={!editorState?.canUnderline}
+          data-disabled={!editorState?.canUnderline}
+          aria-label="Underline"
+          aria-pressed={editorState?.isUnderline}
+          tooltip="Underline"
+          onClick={() => editor?.chain().focus().toggleUnderline().run()}
+          className={`size-8 p-0 hover:bg-accent ${
+            editor?.isActive("underline")
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
-          <Underline className="h-4 w-4" />
-        </Button>
+          <UnderlineIcon className="h-4 w-4" />
+        </TiptapButton>
 
         <div className="w-px h-6 bg-border mx-1" />
 
-        {/* Additional Tools */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+        {/* Link Popover from Tiptap UI */}
+        <LinkPopover editor={editor} />
+        {/* Highlighter Popover from Tiptap UI */}
+        <ColorHighlightPopover editor={editor} />
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={editor?.isActive("superscript") ? "on" : "off"}
+          role="button"
+          tabIndex={-1}
+          aria-label="Superscript"
+          aria-pressed={editor?.isActive("superscript")}
+          tooltip="Superscript"
+          onClick={() => editor?.chain().focus().toggleSuperscript().run()}
+          className={`size-8 p-0 hover:bg-accent ${
+            editor?.isActive("superscript")
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
-          <Link className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+          <SuperscriptIcon className="h-4 w-4" />
+        </TiptapButton>
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={editor?.isActive("subscript") ? "on" : "off"}
+          role="button"
+          tabIndex={-1}
+          aria-label="Subscript"
+          aria-pressed={editor?.isActive("subscript")}
+          tooltip="Subscript"
+          onClick={() => editor?.chain().focus().toggleSubscript().run()}
+          className={`size-8 p-0 hover:bg-accent ${
+            editor?.isActive("subscript")
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
-          <Superscript className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
-        >
-          <Subscript className="h-4 w-4" />
-        </Button>
+          <SubscriptIcon className="h-4 w-4" />
+        </TiptapButton>
 
         <div className="w-px h-6 bg-border mx-1" />
 
         {/* Alignment */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={
+            editor?.isActive({ textAlign: "left" }) ? "on" : "off"
+          }
+          role="button"
+          tabIndex={-1}
+          aria-label="Align Left"
+          aria-pressed={editor?.isActive({ textAlign: "left" })}
+          tooltip="Align Left"
+          onClick={() => editor?.chain().focus().setTextAlign("left").run()}
+          className={`size-8 p-0 hover:bg-accent ${
+            editor?.isActive({ textAlign: "left" })
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <AlignLeft className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+        </TiptapButton>
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={
+            editor?.isActive({ textAlign: "center" }) ? "on" : "off"
+          }
+          role="button"
+          tabIndex={-1}
+          aria-label="Align Center"
+          aria-pressed={editor?.isActive({ textAlign: "center" })}
+          tooltip="Align Center"
+          onClick={() => editor?.chain().focus().setTextAlign("center").run()}
+          className={`size-8 p-0 hover:bg-accent ${
+            editor?.isActive({ textAlign: "center" })
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <AlignCenter className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+        </TiptapButton>
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={
+            editor?.isActive({ textAlign: "right" }) ? "on" : "off"
+          }
+          role="button"
+          tabIndex={-1}
+          aria-label="Align Right"
+          aria-pressed={editor?.isActive({ textAlign: "right" })}
+          tooltip="Align Right"
+          onClick={() => editor?.chain().focus().setTextAlign("right").run()}
+          className={`size-8 p-0 hover:bg-accent ${
+            editor?.isActive({ textAlign: "right" })
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <AlignRight className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+        </TiptapButton>
+        <TiptapButton
+          type="button"
+          data-style="ghost"
+          data-active-state={
+            editor?.isActive({ textAlign: "justify" }) ? "on" : "off"
+          }
+          role="button"
+          tabIndex={-1}
+          aria-label="Align Justify"
+          aria-pressed={editor?.isActive({ textAlign: "justify" })}
+          tooltip="Align Justify"
+          onClick={() => editor?.chain().focus().setTextAlign("justify").run()}
+          className={`size-8 p-0 hover:bg-accent ${
+            editor?.isActive({ textAlign: "justify" })
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
           <AlignJustify className="h-4 w-4" />
-        </Button>
+        </TiptapButton>
 
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Add Button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-accent gap-1"
-        >
-          <Plus className="h-4 w-4" />
-          Add
-        </Button>
+        {/* Image Upload Button (TipTap) */}
+        {editor && <ImageUploadButton editor={editor} text="Add Image" />}
       </div>
 
       {/* Editor Content */}
       <div className="min-h-96 p-6 bg-card">
         <EditorContent
           editor={editor}
-          className="prose prose-neutral dark:prose-invert max-w-none focus:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-96 [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_p]:mb-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:rounded [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:rounded"
+          className="prose prose-neutral dark:prose-invert max-w-none focus:outline-none 
+    [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-96 
+    [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 
+    [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mb-3 
+    [&_.ProseMirror_p]:mb-4 
+    [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border 
+    [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic
+    [&_.ProseMirror_blockquote]:my-4
+    [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:rounded [&_.ProseMirror_pre]:overflow-x-auto 
+    [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:rounded
+    [&_.ProseMirror_ul:not([data-type='taskList'])]:list-disc [&_.ProseMirror_ul:not([data-type='taskList'])]:pl-6 [&_.ProseMirror_ul:not([data-type='taskList'])]:mb-4
+    [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6 [&_.ProseMirror_ol]:mb-4
+    [&_.ProseMirror_ul[data-type='taskList']]:list-none [&_.ProseMirror_ul[data-type='taskList']]:pl-0 [&_.ProseMirror_ul[data-type='taskList']]:mb-4
+    [&_.ProseMirror_ul[data-type='taskList']_.ProseMirror-li]:flex [&_.ProseMirror_ul[data-type='taskList']_.ProseMirror-li]:items-center [&_.ProseMirror_ul[data-type='taskList']_.ProseMirror-li]:gap-2
+  [&_.ProseMirror_ul[data-type='taskList']_.ProseMirror-li_input[type='checkbox']]:w-10 [&_.ProseMirror_ul[data-type='taskList']_.ProseMirror-li_input[type='checkbox']]:h-10
+  [&_.ProseMirror_li]:mb-1 [&_.ProseMirror_li]:leading-relaxed
+  [&_.ProseMirror_img]:block [&_.ProseMirror_img]:max-w-full [&_.ProseMirror_img]:h-auto"
         />
       </div>
     </div>

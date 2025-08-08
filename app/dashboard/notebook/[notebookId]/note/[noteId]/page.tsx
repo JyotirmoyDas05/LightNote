@@ -25,7 +25,7 @@ export default async function NotePage({ params }: { params: Params }) {
     >
       <h1>{note?.title}</h1>
       <RichTextEditor
-        content={note?.content as JSONContent[]}
+  content={note?.content as JSONContent}
         noteId={noteId}
       />
     </PageWrapper>

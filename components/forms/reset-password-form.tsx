@@ -30,10 +30,15 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
-const formSchema = z.object({
-  password: z.string().min(8),
-  confirmPassword: z.string().min(8),
-});
+const formSchema = z
+  .object({
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string().min(8, 'Password must be at least 8 characters'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 export function ResetPasswordForm({
   className,
@@ -42,12 +47,11 @@ export function ResetPasswordForm({
   const router = useRouter();
 
   const searchParams = useSearchParams();
-  const token = searchParams.get("token");
+  const token = searchParams?.get("token") ?? "";
 
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState("");
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -60,13 +64,7 @@ export function ResetPasswordForm({
     try {
       setIsLoading(true);
 
-      if (values.password !== values.confirmPassword) {
-        setPasswordError("Passwords do not match");
-        setIsLoading(false);
-        return;
-      } else {
-        setPasswordError("");
-      }
+
 
       const { error } = await authClient.resetPassword({
         newPassword: values.password,
@@ -161,9 +159,7 @@ export function ResetPasswordForm({
                           </div>
                         </FormControl>
                         <FormMessage />
-                        {passwordError && (
-                          <span className="text-red-500 text-xs mt-1 block">{passwordError}</span>
-                        )}
+
                       </FormItem>
                     )}
                   />

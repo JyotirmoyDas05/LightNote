@@ -90,7 +90,11 @@ export function AppSidebar({
   return (
     <Sidebar {...props}>
       <SidebarHeader>
-        <Link href="/dashboard" className="flex items-center gap-2 pl-2">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 pl-2 py-4 min-h-[64px]"
+          style={{height: '64px'}}
+        >
           <Image src="/Suryastra-Logo-Design.png" alt="Logo" width={32} height={32} />
           <h2>LightNote</h2>
         </Link>
