@@ -58,6 +58,7 @@ import {
   UnderlineIcon,
 } from "lucide-react";
 import { ImageUploadButton } from "@/components/tiptap-ui/image-upload-button";
+import SaveStatusIndicator from "@/components/SaveStatusIndicator";
 import { updateNote } from "@/server/notes";
 
 interface RichTextEditorProps {
@@ -66,11 +67,9 @@ interface RichTextEditorProps {
 }
 
 const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
-  const saveTimer = React.useRef<NodeJS.Timeout | null>(null);
-  const debouncedSave = React.useCallback((fn: () => void, delay = 500) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(fn, delay);
-  }, []);
+  const [saving, setSaving] = React.useState(false);
+  const debounceRef = React.useRef<NodeJS.Timeout | null>(null);
+  const latest = React.useRef<JSONContent | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -134,11 +133,14 @@ const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
     injectCSS: false,
     onUpdate: ({ editor }) => {
       if (!noteId) return;
-      const content = editor.getJSON();
-      const images = extractImageUrlsFromJSON(content);
-      debouncedSave(() => {
-        updateNote(noteId, { content, images });
-      });
+      latest.current = editor.getJSON();
+      setSaving(true);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(async () => {
+        const images = extractImageUrlsFromJSON(latest.current!);
+        await updateNote(noteId, { content: latest.current, images });
+        setSaving(false);
+      }, 2000);
     },
     content: (content
       ? stripNodesOfType(content as JSONContent, "imageUpload")
@@ -169,48 +171,17 @@ const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
             { type: "text", text: "." },
           ],
         },
-        {
-          type: "paragraph",
-          content: [
-            { type: "text", text: "Integrate it by following the " },
-            {
-              type: "text",
-              text: "Tiptap UI Components docs",
-              marks: [{ type: "code" }],
-            },
-            { type: "text", text: " or using our CLI tool." },
-          ],
-        },
-        {
-          type: "codeBlock",
-          content: [{ type: "text", text: "npx @tiptap/cli init" }],
-        },
-        {
-          type: "heading",
-          attrs: { level: 2 },
-          content: [{ type: "text", text: "Features" }],
-        },
-        {
-          type: "blockquote",
-          content: [
-            {
-              type: "paragraph",
-              content: [
-                {
-                  type: "text",
-                  text: "A fully responsive rich text editor with built-in support for common formatting and layout tools. Type markdown ",
-                },
-                { type: "text", text: "**", marks: [{ type: "bold" }] },
-                { type: "text", text: " or use keyboard shortcuts " },
-                { type: "text", text: "⌘+B", marks: [{ type: "code" }] },
-                { type: "text", text: " for most all common markdown marks." },
-              ],
-            },
-          ],
-        },
       ],
     },
   });
+
+  // Cleanup debounce timer on unmount
+  React.useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+// ...existing code...
 
   const editorState = useEditorState({
     editor,
@@ -562,8 +533,11 @@ const RichTextEditor = ({ content, noteId }: RichTextEditorProps) => {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Image Upload Button (TipTap) */}
-        {editor && <ImageUploadButton editor={editor} text="Add Image" />}
+        {/* Image Upload Button (TipTap) and Save Status Indicator */}
+        <div className="flex items-center gap-2">
+          {editor && <ImageUploadButton editor={editor} text="Add Image" />}
+          <SaveStatusIndicator saving={saving} />
+        </div>
       </div>
 
       {/* Editor Content */}

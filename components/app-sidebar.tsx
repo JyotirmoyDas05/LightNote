@@ -21,6 +21,7 @@ export function AppSidebar({
 }: React.ComponentProps<typeof Sidebar>) {
   // ...existing code...
   const [favorites, setFavorites] = React.useState([]);
+  const [favoritesLoading, setFavoritesLoading] = React.useState(true);
   type SidebarDataType = {
     versions: string[];
     navMain: Array<{
@@ -40,6 +41,7 @@ export function AppSidebar({
   React.useEffect(() => {
     async function fetchFavorites() {
       try {
+        setFavoritesLoading(true);
         const res = await fetch("/api/favorites");
         if (res.ok) {
           const json = await res.json();
@@ -56,6 +58,8 @@ export function AppSidebar({
         }
       } catch {
         setFavorites([]);
+      } finally {
+        setFavoritesLoading(false);
       }
     }
     fetchFavorites();
@@ -105,7 +109,7 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent className="gap-0">
         {/* Favorites Tab */}
-        <NavFavorites favorites={favorites} />
+  <NavFavorites favorites={favorites} loading={favoritesLoading} />
         {data && <SidebarData data={data} />}
       </SidebarContent>
       <SidebarRail />
